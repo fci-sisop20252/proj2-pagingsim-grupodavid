@@ -2,14 +2,12 @@
 
 **Disciplina:** Sistemas Operacionais
 **Professor:** Lucas Figueiredo
-**Data:**
+**Data:*02/11/2023*
 
 ## Integrantes do Grupo
 
-- Nome Completo - Matrícula
-- Nome Completo - Matrícula
-- Nome Completo - Matrícula
-- Nome Completo - Matrícula
+- David Rodrigues de Oliveira - 10410867
+
 
 ---
 
@@ -22,6 +20,8 @@ Descreva EXATAMENTE como compilar seu projeto. Inclua todos os comandos necessá
 **Exemplo:**
 ```bash
 gcc -o simulador simulador.c
+Utilizado: executável simulator na raiz do projeto.
+
 ```
 
 ou
@@ -54,33 +54,93 @@ Descreva as estruturas de dados que você escolheu para representar:
 
 **Tabela de Páginas:**
 - Qual estrutura usou? (array, lista, hash map, etc.)
+vetores (frames[] e rbit[]) dentro de uma struct Processo.
+  
 - Quais informações armazena para cada página?
+frames[i]: número do quadro físico em que a página está (ou -1 se não estiver na memória).
+rbit[i]: bit de referência (usado pelo algoritmo Clock).
+
 - Como organizou para múltiplos processos?
+cada processo tem sua própria tabela (processos[]).
+  
 - **Justificativa:** Por que escolheu essa abordagem?
+vetores permitem acesso rápido e indexado à página, simplificando a lógica dos algoritmos.
 
 **Frames Físicos:**
 - Como representou os frames da memória física?
+vetor de structs Frame memoria[MAX_FRAMES].
+
 - Quais informações armazena para cada frame?
 - Como rastreia frames livres vs ocupados?
+ocupado: se o frame está sendo usado.
+pid: dono do frame.
+pagina: número da página carregada.
+
 - **Justificativa:** Por que escolheu essa abordagem?
+facilita percorrer e encontrar frames livres ou ocupados.
 
 **Estrutura para FIFO:**
 - Como mantém a ordem de chegada das páginas?
+variável global fifo_index.
+
 - Como identifica a página mais antiga?
+índice indica a próxima vítima circularmente.
+
 - **Justificativa:** Por que escolheu essa abordagem?
+simples, eficiente e segue a ordem de chegada.
 
 **Estrutura para Clock:**
 - Como implementou o ponteiro circular?
+variável global clock_hand.
 - Como armazena e atualiza os R-bits?
+percorre circularmente os frames, verificando o rbit da página associada.
 - **Justificativa:** Por que escolheu essa abordagem?
+simula com fidelidade o algoritmo da “segunda chance”.
+  
+
 
 ### 2.2 Organização do Código
 
 Descreva como organizou seu código:
 
 - Quantos arquivos/módulos criou?
+O código do simulador foi organizado em um único arquivo principal chamado simulador.c.
+Todas as funções e estruturas estão centralizadas nesse arquivo, o que facilita a compilação e a execução direta sem necessidade de múltiplos módulos.
+
+Arquivos criados:
+
+simulador.c — contém toda a lógica do simulador (leitura de configuração, execução dos algoritmos FIFO e Clock, tratamento de page faults e geração de relatórios).
+
+(Opcionalmente podem existir arquivos auxiliares de teste, como tests/config_1.txt e tests/acessos_1.txt, que servem apenas como entrada de dados.)
+
+Responsabilidade do arquivo principal:
+
+Implementar toda a simulação da memória virtual;
+
+Ler arquivos de configuração e acessos;
+
+Executar os algoritmos de substituição de página (FIFO e Clock);
+
+Registrar resultados detalhados no arquivo de saída;
+
+Gerar estatísticas finais da simulação.
+
 - Qual a responsabilidade de cada arquivo/módulo?
+
+Principais funções do código e suas responsabilidades:
+Função	Responsabilidade
+main()	Recebe os argumentos da linha de comando, chama as funções principais e coordena a execução completa do simulador.
+ler_config(char *arquivo)	Lê o arquivo de configuração que define o número de frames, o tamanho de página e as informações de cada processo. Inicializa as estruturas de memória e processos.
+procurar_frame_livre()	Percorre a memória física em busca de um frame livre. Retorna o índice do primeiro frame livre encontrado, ou -1 se a memória estiver cheia.
+fifo_substituir()	Implementa a política FIFO (First-In, First-Out), selecionando o próximo frame a ser substituído com base na ordem de chegada. Atualiza o índice global fifo_index.
+clock_substituir()	Implementa o algoritmo Relógio (Clock). Utiliza o ponteiro circular clock_hand e os bits de referência (rbit) para dar “segunda chance” às páginas acessadas recentemente.
+acessar_memoria(char *algoritmo, int pid, int endereco)	Executa um acesso à memória. Calcula a página correspondente, verifica se está na memória (HIT) ou se ocorre page fault, e realiza a substituição de acordo com o algoritmo escolhido.
+simular(char *algoritmo, char *arquivo_acessos, char *arquivo_saida)	Coordena toda a simulação: lê o arquivo de acessos, chama acessar_memoria() para cada linha e gera o relatório final com o total de acessos e falhas de página.
+
 - Quais são as principais funções e o que cada uma faz?
+O código foi implementado em um único módulo (simulador.c) por simplicidade e clareza.
+Cada função possui uma responsabilidade específica, seguindo uma divisão lógica entre leitura de entrada, controle de simulação, execução dos algoritmos FIFO/Clock e geração de relatórios.
+Essa estrutura modular dentro de um único arquivo facilita a depuração e mantém a coerência entre as etapas da simulação.
 
 **Exemplo:**
 ```
@@ -98,9 +158,24 @@ simulador.c
 ### 2.3 Algoritmo FIFO
 
 Explique **como** implementou a lógica FIFO:
+O algoritmo FIFO foi implementado de forma simples e direta, utilizando um índice global (fifo_index) para controlar a ordem de chegada das páginas à memória física.
 
 - Como mantém o controle da ordem de chegada?
+A cada nova página carregada na memória (durante um page fault), ela é alocada no próximo frame livre disponível.
+O índice fifo_index é usado como um ponteiro circular, indicando qual frame foi o primeiro a ser ocupado.
+Quando a memória fica cheia, o algoritmo começa a substituir as páginas na mesma ordem em que elas foram inseridas.
+
+Em termos simples: a primeira página que entrou é a primeira que sai (First-In, First-Out).
+
+
 - Como seleciona a página vítima?
+Quando ocorre um page fault e não há mais frames livres, o simulador chama a função:
+int fifo_substituir()
+Essa função devolve o índice do próximo frame a ser substituído, usando o valor atual de fifo_index.
+Após escolher o frame vítima, o índice é incrementado:
+fifo_index = (fifo_index + 1) % num_frames;
+Isso cria um comportamento circular, garantindo que, após atingir o último frame, o algoritmo volte ao primeiro.
+
 - Quais passos executa ao substituir uma página?
 
 **Não cole código aqui.** Explique a lógica em linguagem natural.

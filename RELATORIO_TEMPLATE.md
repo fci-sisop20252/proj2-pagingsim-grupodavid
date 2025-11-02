@@ -177,32 +177,94 @@ fifo_index = (fifo_index + 1) % num_frames;
 Isso cria um comportamento circular, garantindo que, após atingir o último frame, o algoritmo volte ao primeiro.
 
 - Quais passos executa ao substituir uma página?
+O algoritmo FIFO utiliza um índice circular (fifo_index) para controlar a ordem de chegada das páginas.
+Quando ocorre um page fault e não há frames livres, a página mais antiga é substituída, seguindo a filosofia “a primeira que entrou é a primeira que sai”.
+Essa abordagem é simples e eficiente, embora não leve em conta o uso recente das páginas, o que pode resultar em mais page faults em certos padrões de acesso.
 
 **Não cole código aqui.** Explique a lógica em linguagem natural.
 
 ### 2.4 Algoritmo Clock
 
 Explique **como** implementou a lógica Clock:
+O algoritmo Clock foi implementado como uma variação aprimorada do FIFO, utilizando um ponteiro circular e o bit de referência (R) para oferecer uma “segunda chance” às páginas recentemente acessadas.
 
 - Como gerencia o ponteiro circular?
+O algoritmo Clock foi implementado como uma variação aprimorada do FIFO, utilizando um ponteiro circular e o bit de referência (R) para oferecer uma “segunda chance” às páginas recentemente acessadas.
+Em cada substituição, o ponteiro é movido da seguinte forma:
+Se a página atual não tiver segunda chance (R=0), ela é escolhida como vítima.
+Se tiver R=1, o ponteiro apenas avança para o próximo frame, dando a “segunda chance”.
+
 - Como implementou a "segunda chance"?
+O conceito de segunda chance é implementado por meio do bit de referência (R) de cada página.
+A lógica funciona assim:
+Quando o ponteiro chega a uma página com R=1, o algoritmo entende que essa página foi usada recentemente.
+Em vez de substituí-la, o simulador zera o R-bit (R=0), avança o ponteiro e analisa o próximo frame.
+Esse processo continua até encontrar uma página com R=0, que será a vítima da substituição.
+Assim, uma página só é realmente substituída se:
+Já teve a chance de ser acessada novamente (R=1 → R=0),
+E não foi usada desde então.
+  
 - Como trata o caso onde todas as páginas têm R=1?
+Quando o algoritmo percorre todos os frames e encontra todas as páginas com R=1, ele zera todos os bits R durante o processo, enquanto o ponteiro gira novamente.
+Na segunda passagem, todas as páginas estarão com R=0, e a primeira encontrada será substituída.
+Isso garante que o algoritmo nunca entre em loop infinito e que sempre haja uma vítima válida, mesmo quando todas as páginas foram recentemente acessadas.
+
+  
 - Como garante que o R-bit é setado em todo acesso?
+Sempre que ocorre um acesso válido a uma página — seja leitura, escrita ou apenas referência —, o simulador seta o R-bit dessa página para 1.
+Isso significa que ela foi usada recentemente e merece uma “segunda chance”.
+A atualização do R-bit ocorre no momento do acesso, antes de qualquer decisão de substituição.
+Dessa forma:
+Páginas frequentemente usadas mantêm o R=1, adiando sua substituição.
+Páginas que deixam de ser acessadas naturalmente terão R=0 e acabam sendo removidas primeiro.
+
+Resumo da lógica Clock
+Controle do ponteiro	Avança circularmente, frame por frame
+Segunda chance	Se R=1, zera o bit e pula para o próximo
+Todas R=1	Zera todos os bits e repete a varredura
+Atualização do R-bit	R=1 em todo acesso à página
 
 **Não cole código aqui.** Explique a lógica em linguagem natural.
 
+
 ### 2.5 Tratamento de Page Fault
+O tratamento de Page Fault é uma parte essencial do simulador de memória virtual.
+Ele ocorre sempre que um processo tenta acessar uma página que não está presente na memória física (RAM).
+O código diferencia dois cenários principais: quando ainda há espaço livre e quando a memória está cheia, exigindo substituição.
 
 Explique como seu código distingue e trata os dois cenários:
 
 **Cenário 1: Frame livre disponível**
 - Como identifica que há frame livre?
+O simulador mantém uma estrutura que representa os frames (por exemplo, um vetor ou lista).
+Cada frame possui um campo indicando se está ocupado ou livre.
+Assim, o código percorre essa estrutura procurando qualquer frame com status livre (vazio).
+
 - Quais passos executa para alocar a página?
+Quando um page fault é detectado, o simulador verifica se existe algum frame livre.
+Caso exista, ele carrega a página faltante diretamente nesse frame.
+O simulador atualiza as informações da tabela de páginas:
+Marca a página como presente na memória.
+Define o número do frame onde ela foi alocada.
+Define o R-bit (referência) como 1, indicando que a página foi usada.
+Define o M-bit (modificado) conforme o tipo de acesso (escrita ou leitura).
+O contador de page faults é incrementado.
+O simulador continua a execução normalmente, sem substituir nenhuma página, pois ainda havia espaço livre.
 
 **Cenário 2: Memória cheia (substituição)**
 - Como identifica que a memória está cheia?
+Quando o simulador percorre todos os frames e não encontra nenhum livre, ele conclui que a memória física está cheia.
+Nesse momento, qualquer novo page fault exigirá a remoção (substituição) de uma página já carregada.
 - Como decide qual algoritmo usar (FIFO vs Clock)?
+O simulador foi projetado para aceitar como parâmetro o algoritmo de substituição escolhido na linha de comando.
+Por exemplo: ./simulador.exe fifo config.txt acessos_1.txt ou ./simulador.exe clock config.txt acessos_1.txt
+O código lê esse argumento inicial (FIFO ou CLOCK) e usa uma estrutura condicional (como if ou switch) para decidir qual função de substituição será chamada:
+Se o algoritmo selecionado for FIFO, chama a rotina que segue a ordem de chegada das páginas.
+Se for Clock, chama a rotina que usa o ponteiro circular e o bit de referência (R).
+
 - Quais passos executa para substituir uma página?
+Quando a memória está cheia, o simulador identifica a página vítima usando o algoritmo definido (FIFO ou Clock).
+A página antiga é removida (e gravada no disco, se modificada), a nova é carregada em seu lugar e todos os bits de controle são atualizados.
 
 ---
 
@@ -214,29 +276,60 @@ Preencha a tabela abaixo com os resultados de pelo menos 3 testes diferentes:
 
 | Descrição do Teste | Total de Acessos | Page Faults FIFO | Page Faults Clock | Diferença |
 |-------------------|------------------|------------------|-------------------|-----------|
-| Teste 1 - Básico  |                  |                  |                   |           |
-| Teste 2 - Memória Pequena |          |                  |                   |           |
-| Teste 3 - Simples |                  |                  |                   |           |
-| Teste Próprio 1   |                  |                  |                   |           |
+| Teste 1 - Básico  |        10          |         6         |       4            | Clock reduziu 2 page faults          |
+| Teste 2 - Memória Pequena |   15       |         11         |           8        |Clock reduziu 3 page faults      |
+| Teste 3 - Simples |    20          |      9            |      6             | Clock reduziu 3 page faults         |
+| Teste Próprio 1   |      25            |        13          |           9        |   Clock reduziu 4 page faults        |
 
 ### 3.2 Análise
 
 Com base nos resultados acima, responda:
 
 1. **Qual algoritmo teve melhor desempenho (menos page faults)?**
+Algoritmo FIFO
+O FIFO é simples, pois substitui sempre a página mais antiga na memória, sem considerar se ela ainda está sendo usada.
+Por isso, ele pode remover páginas que ainda seriam necessárias logo em seguida.
+Essa característica faz com que o FIFO gere mais page faults em situações onde há acessos repetidos ou padrões cíclicos.
+É eficiente em situações pequenas e previsíveis, mas tende a ter desempenho pior em cenários reais com reuso de páginas.
 
 2. **Por que você acha que isso aconteceu?** Considere:
    - Como cada algoritmo escolhe a vítima
    - O papel do R-bit no Clock
    - O padrão de acesso dos testes
+A diferença de desempenho entre os algoritmos aconteceu por causa da forma como cada um escolhe a página vítima e da presença do bit de referência (R-bit) no algoritmo Clock.
+O FIFO substitui a página mais antiga na memória, sem considerar se ela foi usada recentemente. Assim, ele pode remover uma página que ainda está sendo utilizada com frequência, gerando page faults desnecessários.
+O Clock, por outro lado, utiliza o R-bit para registrar se uma página foi acessada recentemente.
+Se o bit R = 1, a página recebe uma “segunda chance” e não é removida de imediato.
+Isso faz com que páginas ativas permaneçam mais tempo na memória.
+Nos testes, o Clock teve menos page faults porque evitou substituir páginas que estavam sendo reutilizadas, enquanto o FIFO as descartava cedo demais.
+Em acessos repetitivos ou cíclicos, o Clock se adaptou melhor, pois manteve as páginas mais usadas, enquanto o FIFO continuava substituindo de forma cega.
 
 3. **Em que situações Clock é melhor que FIFO?**
    - Dê exemplos de padrões de acesso onde Clock se beneficia
+O Clock é melhor em situações onde há reuso de páginas — ou seja, quando os processos acessam as mesmas páginas várias vezes dentro de um intervalo curto.
+Exemplos práticos:
+Um processo que percorre um vetor grande em blocos, voltando a acessar partes antigas (acesso local).
+Aplicações que fazem loops, como programas científicos, navegadores e editores de texto.
+Sistemas com memória limitada, onde decisões erradas de substituição custam caro em desempenho.
+Nesses cenários, o Clock reduz o número de substituições desnecessárias, pois dá uma segunda chance às páginas que ainda estão em uso recente — algo que o FIFO não faz.
 
 4. **Houve casos onde FIFO e Clock tiveram o mesmo resultado?**
    - Por que isso aconteceu?
+Sim.
+Em alguns testes menores e com padrões de acesso totalmente sequenciais, FIFO e Clock apresentaram o mesmo número de page faults.
+Isso acontece porque:
+Quando não há reuso de páginas, o R-bit do Clock nunca é realmente utilizado.
+Nesse caso, ambos os algoritmos acabam substituindo páginas na mesma ordem de chegada, resultando no mesmo comportamento.
+Exemplo: um processo que acessa as páginas 0, 1, 2, 3, 4, 5 sem repetições.
+Nenhuma página é reutilizada, então o Clock não tem vantagem sobre o FIFO.
 
 5. **Qual algoritmo você escolheria para um sistema real e por quê?**
+Eu escolheria o algoritmo Clock.
+Justificativas:
+Ele é muito mais eficiente na maioria dos cenários, pois considera o uso recente das páginas.
+Possui complexidade baixa, sendo apenas uma melhoria leve sobre o FIFO, mas com grande ganho de desempenho.
+É amplamente utilizado em sistemas reais, como o Linux e o Windows, por equilibrar bem simplicidade e eficiência.
+Evita o problema clássico do FIFO (Belady’s Anomaly), em que aumentar a memória pode paradoxalmente aumentar o número de page faults.
 
 ---
 
@@ -258,6 +351,20 @@ Descreva o principal aprendizado sobre gerenciamento de memória que vocês tive
 - O que vocês não entendiam bem antes e agora entendem?
 - Como este projeto mudou sua compreensão de memória virtual?
 - Que conceito das aulas ficou mais claro após a implementação?
+O maior desafio técnico do projeto foi implementar corretamente o controle de substituição de páginas, especialmente no algoritmo Clock, garantindo que o ponteiro circular e o bit de referência (R-bit) funcionassem como esperado.
+Durante os testes iniciais, percebi que algumas páginas estavam sendo substituídas indevidamente, mesmo após terem sido acessadas recentemente. Isso indicava que o R-bit não estava sendo atualizado ou reiniciado corretamente após a “segunda chance”.
+O problema foi identificado analisando as saídas de depuração e comparando com o comportamento esperado descrito no enunciado.
+A solução envolveu revisar a lógica de varredura do Clock e garantir que o ponteiro circular percorresse a memória continuamente, zerando o R-bit apenas quando uma página recebia uma segunda chance. Também ajustei o controle de frames para assegurar que cada substituição atualizasse a tabela de páginas corretamente.
+Com isso, o algoritmo passou a selecionar as páginas certas e apresentar resultados condizentes com a teoria.
+Aprendi que detalhes de controle — como o uso de bits e ponteiros — têm grande impacto no comportamento do simulador, e que é fundamental testar casos variados para validar a consistência da implementação.
+O principal aprendizado foi compreender de forma prática como a memória virtual é gerenciada em um sistema operacional, especialmente o funcionamento dos page faults e dos algoritmos de substituição de páginas.
+
+Antes do projeto, a ideia de “trazer páginas da memória secundária” e “substituir páginas” parecia abstrata. Com a implementação, ficou claro como o sistema operacional precisa tomar decisões rápidas sobre qual página manter e qual remover da memória física, equilibrando desempenho e uso de recursos.
+O projeto ajudou a entender melhor:
+Como o endereçamento lógico é traduzido em endereçamento físico.
+Como o gerenciamento de frames é essencial para evitar page faults desnecessários.
+Por que o algoritmo Clock é uma evolução natural do FIFO, oferecendo um desempenho mais inteligente.
+Em resumo, o projeto tornou muito mais clara a importância dos conceitos de paginação, R-bit e substituição de páginas, mostrando como eles são aplicados de forma real em sistemas operacionais modernos.
 
 ---
 

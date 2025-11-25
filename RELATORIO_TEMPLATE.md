@@ -370,7 +370,7 @@ Em resumo, o projeto tornou muito mais clara a importância dos conceitos de pag
 
 ## 5. Vídeo de Demonstração
 
-**Link do vídeo:** [https://youtu.be/D-YSr_uLVfE?si=ShL9mNgY1n2qS4LG]
+**Link do vídeo:** https://youtu.be/cgMGZLq16oQ?si=QEDjteUgpEIIiRYx
 
 ### Conteúdo do vídeo:
 

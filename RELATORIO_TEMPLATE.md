@@ -401,7 +401,16 @@ Antes de submeter, verifique:
 
 ---
 ## Referências
-Liste aqui quaisquer referências que utilizaram para auxiliar na implementação (livros, artigos, sites, **links para conversas com IAs.**)
+Liste aqui quaisquer referências que utilizaram para auxiliar na implementação 
+utilizei as seguintes referências:
+
+Material da disciplina fornecido pelo professor
+
+Slides e códigos-base disponibilizados em aula
+
+Documentação padrão da linguagem C
+
+Conversas explicativas com a IA ChatGPT sobre lógica de paginação.
 
 
 ---
